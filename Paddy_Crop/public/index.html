@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaddyTrack - Advanced Paddy Crop Classification</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet.js for interactive maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet.draw for drawing on map -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom styles for the application */
+        :root {
+            --primary-color: #10b981; /* emerald-500 */
+            --dark-bg: #0c1322;
+            --panel-bg: rgba(17, 24, 39, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--dark-bg);
+            color: #e5e7eb;
+        }
+        .glassmorphism {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+        }
+        .leaflet-container {
+            background: #1f2937;
+        }
+        .chart-container {
+            position: relative;
+            height: 220px;
+            width: 100%;
+        }
+        .hero-bg {
+            background-image: url('https://images.unsplash.com/photo-1559402942-b42b1d0b1744?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+        .btn-primary {
+            @apply bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-emerald-700 transition-all duration-300 transform hover:scale-105 disabled:bg-emerald-800 disabled:scale-100 disabled:cursor-not-allowed;
+        }
+         .btn-secondary {
+            @apply bg-gray-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition-all duration-300 disabled:bg-gray-800 disabled:cursor-not-allowed;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        /* Animation for hero text */
+        .fade-in-up {
+            animation: fadeInUp 1s ease-out forwards;
+            opacity: 0;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Timeline styles */
+        .timeline-item { @apply relative pl-8 pb-8; }
+        .timeline-item:last-child { @apply pb-0; }
+        .timeline-item::before { content: ''; @apply absolute left-3 top-1 w-px h-full bg-gray-600; }
+        .timeline-dot { @apply absolute left-0 top-0 h-6 w-6 rounded-full bg-gray-700 border-4 border-gray-900 flex items-center justify-center; }
+        .timeline-dot-inner { @apply h-2 w-2 rounded-full bg-emerald-400; }
+        
+        /* Leaflet Draw Toolbar Customization */
+        .leaflet-draw-toolbar a { background-color: #374151 !important; color: #e5e7eb !important; border-radius: 4px !important; }
+        .leaflet-draw-toolbar a:hover { background-color: #4b5563 !important; }
+
+        /* Toast Notification */
+        #toast {
+            @apply fixed bottom-5 right-5 bg-emerald-500 text-white py-3 px-5 rounded-lg shadow-xl translate-y-20 opacity-0 transition-all duration-500;
+        }
+        #toast.show {
+            @apply translate-y-0 opacity-100;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            @apply absolute inset-0 bg-gray-900 bg-opacity-70 z-10 flex items-center justify-center transition-opacity duration-300;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <!-- Landing Page Section -->
+    <div id="landingPage">
+        <header class="absolute top-0 left-0 w-full z-10 p-5">
+            <nav class="container mx-auto flex justify-between items-center">
+                <div class="text-2xl font-extrabold text-white tracking-wider">
+                    <span class="text-emerald-400">Paddy</span>Track
+                </div>
+                <button id="launchDashboardBtn" class="btn-primary">Launch Dashboard</button>
+            </nav>
+        </header>
+
+        <main class="hero-bg relative h-screen flex items-center justify-center text-white">
+            <div class="absolute inset-0 bg-black opacity-70"></div>
+            <div class="relative z-10 text-center px-4">
+                <h1 class="text-5xl md:text-7xl font-extrabold mb-4 leading-tight fade-in-up" style="animation-delay: 0.2s;">Advanced Paddy Crop Classification & Monitoring</h1>
+                <p class="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto fade-in-up" style="animation-delay: 0.4s;">
+                    A tangible demonstration of a scalable system to detect, classify, and monitor paddy crops using satellite imagery and modern machine learning techniques.
+                </p>
+            </div>
+        </main>
+
+        <!-- All sections below the hero -->
+        <div class="bg-gray-900">
+            <!-- Core Features -->
+            <section class="py-20">
+                <div class="container mx-auto text-center">
+                    <h2 class="text-4xl font-bold mb-12">Core Features</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 px-10">
+                        <!-- Feature Cards -->
+                        <div class="glassmorphism p-8 rounded-2xl text-center transition-all duration-300 hover:border-emerald-400/50 hover:scale-105">
+                             <svg class="w-16 h-16 mx-auto mb-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17.25v-.934a.375.375 0 0 1 .11-.253l4.586-4.586a.375.375 0 0 1 .53 0l4.586 4.586a.375.375 0 0 1 .11.253v.934a1.875 1.875 0 0 1-1.875 1.875H10.875A1.875 1.875 0 0 1 9 17.25Z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21.75a9.715 9.715 0 0 1-6.172-2.223 9.715 9.715 0 0 1-2.223-6.172c0-2.612 1.03-5.07 2.88-6.919a9.715 9.715 0 0 1 6.919-2.88c2.612 0 5.07 1.03 6.919 2.88a9.715 9.715 0 0 1 2.88 6.919 9.715 9.715 0 0 1-2.223 6.172A9.715 9.715 0 0 1 12 21.75Z"></path></svg>
+                            <h3 class="text-2xl font-bold mb-2">Accurate Paddy Detection</h3>
+                            <p class="text-gray-400">State-of-the-art ML & DL models for precise crop classification.</p>
+                        </div>
+                        <div class="glassmorphism p-8 rounded-2xl text-center transition-all duration-300 hover:border-emerald-400/50 hover:scale-105">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.28m5.94 2.28L21.75 12M2.25 18v3.75a.75.75 0 0 0 .75.75h3.75m0-3.75L6 21m15-9-3.75-1.5M12 9.75l-3.75-1.5M3 12l3.75 1.5m12-3.75-3.75 1.5m-6 0L9 12.75"></path></svg>
+                            <h3 class="text-2xl font-bold mb-2">Seasonal Growth Monitoring</h3>
+                            <p class="text-gray-400">Track crop health and growth stages throughout the season.</p>
+                        </div>
+                        <div class="glassmorphism p-8 rounded-2xl text-center transition-all duration-300 hover:border-emerald-400/50 hover:scale-105">
+                            <svg class="w-16 h-16 mx-auto mb-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z"></path></svg>
+                            <h3 class="text-2xl font-bold mb-2">Advanced Analytics</h3>
+                            <p class="text-gray-400">Gain insights with detailed charts and evaluation metrics.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Project Timeline -->
+            <section class="py-20 bg-gray-900">
+                <div class="container mx-auto px-10">
+                    <h2 class="text-4xl font-bold mb-12 text-center">Project Timeline</h2>
+                    <div class="max-w-3xl mx-auto">
+                        <div class="timeline-item">
+                            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+                            <h4 class="font-bold text-lg text-emerald-400">Month 1: Literature Review & Data Collection</h4>
+                            <p class="text-gray-400">Finalize study areas and gather all necessary satellite and ground truth data.</p>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+                            <h4 class="font-bold text-lg text-emerald-400">Month 2: Data Preprocessing</h4>
+                            <p class="text-gray-400">Execute atmospheric correction, cloud masking, and temporal compositing.</p>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+                            <h4 class="font-bold text-lg text-emerald-400">Month 3-4: Feature Engineering & Model Training</h4>
+                            <p class="text-gray-400">Calculate spectral indices and train ML/DL classification models.</p>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+                            <h4 class="font-bold text-lg text-emerald-400">Month 5: Accuracy Assessment</h4>
+                            <p class="text-gray-400">Evaluate model performance using comprehensive metrics and confusion matrices.</p>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"><div class="timeline-dot-inner"></div></div>
+                            <h4 class="font-bold text-lg text-emerald-400">Month 6: Reporting & Visualization</h4>
+                            <p class="text-gray-400">Develop the final user interface and generate high-accuracy classification maps.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Main Application Dashboard -->
+    <div id="appDashboard" class="hidden h-screen w-screen grid grid-cols-12 grid-rows-12 gap-4 p-4 bg-gray-900">
+        <!-- Header -->
+        <header class="col-span-12 row-span-1 glassmorphism rounded-xl flex items-center justify-between p-4">
+            <div class="text-2xl font-extrabold text-white tracking-wider">
+                <span class="text-emerald-400">Paddy</span>Track <span class="text-sm font-normal text-gray-400">| Dashboard</span>
+            </div>
+             <button id="backToLandingBtn" class="btn-secondary">Back to Home</button>
+        </header>
+
+        <!-- Left Panel: Control & Analysis Setup -->
+        <div class="col-span-12 md:col-span-3 row-span-11 glassmorphism rounded-xl p-4 overflow-y-auto">
+            <h3 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">Analysis Setup</h3>
+            
+            <!-- Area of Interest -->
+            <div class="mb-4">
+                <label for="studyArea" class="block text-sm font-medium text-gray-300 mb-2">1. Area of Interest (AOI)</label>
+                <select id="studyArea" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="default" disabled selected>Select a Study Area</option>
+                    <option value="eastern_up">Eastern UP</option>
+                    <option value="tamil_nadu">Tamil Nadu Delta</option>
+                    <option value="punjab">Punjab</option>
+                    <option value="west_bengal">West Bengal</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">Or use the drawing tools on the map.</p>
+            </div>
+
+            <!-- Data Source -->
+            <div class="mb-4">
+                <label for="satellite" class="block text-sm font-medium text-gray-300 mb-2">2. Data Source</label>
+                <select id="satellite" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white">
+                    <option value="sentinel-2">Sentinel-2 (10m, 5-day)</option>
+                    <option value="landsat-8">Landsat-8 (30m, 16-day)</option>
+                    <option value="planetscope" disabled>PlanetScope (3m, Premium)</option>
+                </select>
+            </div>
+
+            <!-- Date Range -->
+            <div class="mb-4">
+                 <label class="block text-sm font-medium text-gray-300 mb-2">3. Date Range</label>
+                 <div class="grid grid-cols-2 gap-2">
+                     <input type="date" id="dateStart" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white" value="2023-06-01">
+                     <input type="date" id="dateEnd" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white" value="2023-10-31">
+                 </div>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="mb-4">
+                <label for="model" class="block text-sm font-medium text-gray-300 mb-2">4. Classification Model</label>
+                <select id="model" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white">
+                    <optgroup label="Machine Learning">
+                        <option value="rf">Random Forest (RF)</option>
+                        <option value="svm">Support Vector Machine (SVM)</option>
+                        <option value="xgboost">XGBoost</option>
+                    </optgroup>
+                    <optgroup label="Deep Learning">
+                        <option value="unet">U-Net</option>
+                        <option value="tempcnn">TempCNN</option>
+                        <option value="transformer">Transformer</option>
+                    </optgroup>
+                </select>
+            </div>
+            
+            <!-- Cloud Cover -->
+            <div class="mb-4">
+                <label for="cloudCover" class="block text-sm font-medium text-gray-300 mb-2">5. Cloud Cover Tolerance</label>
+                <input type="range" id="cloudCover" min="0" max="100" value="20" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                <div class="text-right text-xs text-gray-400 mt-1"><span id="cloudCoverValue">20</span>%</div>
+            </div>
+            
+            <!-- Action Button -->
+            <div class="mt-6">
+                <button id="runAnalysisBtn" class="w-full btn-primary">Run Analysis</button>
+            </div>
+            
+            <!-- Preprocessing Steps Visualization -->
+            <div id="preprocessingSteps" class="mt-6 hidden">
+                <h4 class="font-semibold mb-3 text-emerald-400">Analysis Status</h4>
+                <ul class="space-y-2 text-sm">
+                    <li id="step-0" class="flex items-center text-gray-500 transition-colors duration-500"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Connecting to server...</li>
+                    <li id="step-1" class="flex items-center text-gray-500 transition-colors duration-500"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Atmospheric correction</li>
+                    <li id="step-2" class="flex items-center text-gray-500 transition-colors duration-500"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Cloud masking</li>
+                    <li id="step-3" class="flex items-center text-gray-500 transition-colors duration-500"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Image clipping & alignment</li>
+                    <li id="step-4" class="flex items-center text-gray-500 transition-colors duration-500"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>Temporal compositing</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Center Panel: Interactive Map -->
+        <div class="col-span-12 md:col-span-6 row-span-11 glassmorphism rounded-xl p-1 relative" id="mapContainer">
+            <div id="map" class="w-full h-full rounded-lg"></div>
+            <div id="map-loader" class="loading-overlay hidden opacity-0">
+                 <div class="text-center">
+                    <svg class="animate-spin h-10 w-10 text-emerald-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <p id="loader-text" class="mt-2 text-lg font-semibold">Running Analysis...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results & Visualization -->
+        <div class="col-span-12 md:col-span-3 row-span-11 glassmorphism rounded-xl p-4 overflow-y-auto relative">
+             <div id="results-loader" class="loading-overlay hidden opacity-0"></div>
+            <h3 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">Results & Visualization</h3>
+            <div id="resultsContent" class="hidden">
+                <!-- Summary -->
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Evaluation Metrics</h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm bg-gray-800 p-3 rounded-lg">
+                        <p><strong>Accuracy:</strong><br><span id="accuracy" class="text-xl font-bold">0%</span></p>
+                        <p><strong>Kappa:</strong><br><span id="kappa" class="text-xl font-bold">0.00</span></p>
+                        <p><strong>Precision:</strong><br><span id="precision" class="text-xl font-bold">0.00</span></p>
+                        <p><strong>Recall:</strong><br><span id="recall" class="text-xl font-bold">0.00</span></p>
+                        <p><strong>F1-Score:</strong><br><span id="f1score" class="text-xl font-bold">0.00</span></p>
+                    </div>
+                </div>
+                
+                <!-- Seasonal Growth Chart -->
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Seasonal Growth Monitoring (NDVI)</h4>
+                    <div class="chart-container bg-gray-800 p-2 rounded-lg">
+                        <canvas id="temporalChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Land Cover Chart -->
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Land Cover Distribution</h4>
+                    <div class="chart-container bg-gray-800 p-2 rounded-lg">
+                        <canvas id="landCoverChart"></canvas>
+                    </div>
+                </div>
+                
+                 <!-- Download Button -->
+                <div class="mt-6">
+                    <button id="downloadReportBtn" class="w-full btn-secondary">Download Report</button>
+                </div>
+            </div>
+            <div id="resultsPlaceholder" class="text-center text-gray-500 mt-10">
+                <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6m-6 0h6M9 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4M9 19v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"></path></svg>
+                <p>Run analysis to see results here.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Application State & Configuration ---
+            const AppState = {
+                isAnalyzing: false,
+                latestResults: null,
+            };
+
+            const Config = {
+                studyAreas: {
+                    eastern_up: { lat: 26.0, lng: 83.0, zoom: 7, geojson: {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[81,27],[84,27],[84,25],[81,25],[81,27]]]}}},
+                    tamil_nadu: { lat: 10.7905, lng: 79.1378, zoom: 8, geojson: {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[78.5,11.5],[80,11.5],[80,10],[78.5,10],[78.5,11.5]]]}}},
+                    punjab: { lat: 30.7333, lng: 76.7794, zoom: 7, geojson: {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[74,32],[77,32],[77,30],[74,30],[74,32]]]}}},
+                    west_bengal: { lat: 22.5726, lng: 88.3639, zoom: 7, geojson: {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[87,24],[89,24],[89,22],[87,22],[87,24]]]}}}
+                },
+                modelScores: {
+                    rf: 90, svm: 88, xgboost: 92, // ML models
+                    unet: 94, tempcnn: 93, transformer: 95 // DL models
+                },
+                satelliteScores: {
+                    'sentinel-2': 3, // Higher resolution gets a bonus
+                    'landsat-8': 0
+                },
+                areaModifiers: {
+                    'eastern_up': -1, // Slightly harder due to mixed crops
+                    'tamil_nadu': 2,  // Delta region, easier to classify
+                    'punjab': 0,      // Baseline complexity
+                    'west_bengal': 1, // High paddy concentration, slightly easier
+                    'default': -0.5   // For custom drawn areas, assume average difficulty
+                }
+            };
+
+            // --- DOM Element References ---
+            const DOM = {
+                landingPage: document.getElementById('landingPage'),
+                appDashboard: document.getElementById('appDashboard'),
+                launchDashboardBtn: document.getElementById('launchDashboardBtn'),
+                backToLandingBtn: document.getElementById('backToLandingBtn'),
+                runAnalysisBtn: document.getElementById('runAnalysisBtn'),
+                resultsContent: document.getElementById('resultsContent'),
+                resultsPlaceholder: document.getElementById('resultsPlaceholder'),
+                studyAreaSelect: document.getElementById('studyArea'),
+                satelliteSelect: document.getElementById('satellite'),
+                modelSelect: document.getElementById('model'),
+                dateStartInput: document.getElementById('dateStart'),
+                dateEndInput: document.getElementById('dateEnd'),
+                preprocessingStepsEl: document.getElementById('preprocessingSteps'),
+                cloudCoverSlider: document.getElementById('cloudCover'),
+                cloudCoverValue: document.getElementById('cloudCoverValue'),
+                mapLoader: document.getElementById('map-loader'),
+                loaderText: document.getElementById('loader-text'),
+                resultsLoader: document.getElementById('results-loader'),
+                toast: document.getElementById('toast'),
+                downloadReportBtn: document.getElementById('downloadReportBtn'),
+            };
+
+            // --- Map Initialization ---
+            const map = L.map('map').setView([26.8467, 80.9462], 7);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO',
+                subdomains: 'abcd', maxZoom: 20
+            }).addTo(map);
+
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+            const drawControl = new L.Control.Draw({
+                edit: { featureGroup: drawnItems, remove: true },
+                draw: {
+                    polygon: { shapeOptions: { color: '#fbbf24' } },
+                    polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+                }
+            });
+            map.addControl(drawControl);
+            let classifiedLayer = null;
+
+            // --- Chart Instances ---
+            let landCoverChartInstance, temporalChartInstance;
+
+            // --- UI Manager ---
+            const UIManager = {
+                showDashboard: () => {
+                    DOM.landingPage.classList.add('hidden');
+                    DOM.appDashboard.classList.remove('hidden');
+                    setTimeout(() => map.invalidateSize(), 10);
+                },
+                showLandingPage: () => {
+                    DOM.appDashboard.classList.add('hidden');
+                    DOM.landingPage.classList.remove('hidden');
+                },
+                showToast: (message) => {
+                    DOM.toast.textContent = message;
+                    DOM.toast.classList.add('show');
+                    setTimeout(() => DOM.toast.classList.remove('show'), 3000);
+                },
+                setLoading: (isLoading, text = 'Running Analysis...') => {
+                    AppState.isAnalyzing = isLoading;
+                    DOM.runAnalysisBtn.disabled = isLoading;
+                    DOM.downloadReportBtn.disabled = isLoading; // Disable during analysis
+                    DOM.loaderText.textContent = text;
+                    const showLoader = (loader) => {
+                        loader.classList.remove('hidden');
+                        setTimeout(() => loader.classList.remove('opacity-0'), 10);
+                    };
+                    const hideLoader = (loader) => {
+                        loader.classList.add('opacity-0');
+                        setTimeout(() => loader.classList.add('hidden'), 300);
+                    };
+
+                    if (isLoading) {
+                        DOM.runAnalysisBtn.innerHTML = `<svg class="animate-spin h-5 w-5 mr-3 inline-block" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Analyzing...`;
+                        showLoader(DOM.mapLoader);
+                        showLoader(DOM.resultsLoader);
+                        DOM.resultsContent.classList.add('hidden');
+                        DOM.resultsPlaceholder.classList.remove('hidden');
+                        DOM.preprocessingStepsEl.classList.remove('hidden');
+                        for(let i = 0; i <= 4; i++) {
+                            document.getElementById(`step-${i}`).classList.replace('text-emerald-400', 'text-gray-500');
+                        }
+                    } else {
+                        DOM.runAnalysisBtn.textContent = 'Run Analysis Again';
+                        hideLoader(DOM.mapLoader);
+                        hideLoader(DOM.resultsLoader);
+                        if (AppState.latestResults) {
+                           DOM.downloadReportBtn.disabled = false;
+                        }
+                    }
+                },
+                updateResults: (results) => {
+                    DOM.resultsPlaceholder.classList.add('hidden');
+                    DOM.resultsContent.classList.remove('hidden');
+                    AppState.latestResults = results; // Store results for download
+                    DOM.downloadReportBtn.disabled = false; // Enable download button
+                    
+                    if(classifiedLayer) map.removeLayer(classifiedLayer);
+                    classifiedLayer = L.geoJSON(drawnItems.toGeoJSON(), {
+                        style: { color: "#10b981", weight: 3, fillOpacity: 0.6 }
+                    }).bindPopup("<b>Classified Paddy Area</b><br>High confidence.").addTo(map);
+
+                    const animateValue = (id, start, end, duration, suffix = '', decimals = 0) => {
+                        const obj = document.getElementById(id);
+                        let startTimestamp = null;
+                        const step = (timestamp) => {
+                            if (!startTimestamp) startTimestamp = timestamp;
+                            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                            const value = progress * (end - start) + start;
+                            obj.innerHTML = value.toFixed(decimals) + suffix;
+                            if (progress < 1) window.requestAnimationFrame(step);
+                        };
+                        window.requestAnimationFrame(step);
+                    };
+
+                    animateValue("accuracy", 0, results.accuracy, 1000, "%", 1);
+                    animateValue("kappa", 0, results.kappa, 1000, "", 2);
+                    animateValue("precision", 0, results.precision, 1000, "", 2);
+                    animateValue("recall", 0, results.recall, 1000, "", 2);
+                    animateValue("f1score", 0, results.f1score, 1000, "", 2);
+
+                    // Render charts
+                    if (landCoverChartInstance) landCoverChartInstance.destroy();
+                    landCoverChartInstance = new Chart(document.getElementById('landCoverChart').getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Paddy', 'Water', 'Urban', 'Fallow Land'],
+                            datasets: [{
+                                data: results.landCover,
+                                backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(59, 130, 246, 0.8)', 'rgba(107, 114, 128, 0.8)', 'rgba(202, 138, 4, 0.8)'],
+                                borderColor: '#1f2937', borderWidth: 2
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#d1d5db', boxWidth: 12, padding: 15 } } } }
+                    });
+
+                    if (temporalChartInstance) temporalChartInstance.destroy();
+                    temporalChartInstance = new Chart(document.getElementById('temporalChart').getContext('2d'), {
+                        type: 'line',
+                        data: {
+                            labels: ['Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+                            datasets: [{
+                                label: 'NDVI',
+                                data: results.ndvi,
+                                fill: true, backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: 'rgba(16, 185, 129, 1)', tension: 0.3
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { color: '#9ca3af' } }, x: { ticks: { color: '#9ca3af' } } }, plugins: { legend: { display: false } } }
+                    });
+                }
+            };
+
+            // --- Report Generator ---
+            const ReportGenerator = {
+                generate: (results = AppState.latestResults, customParams = null, isSample = false) => {
+                    if (!results) return null;
+
+                    const { accuracy, kappa, precision, recall, f1score, landCover, ndvi } = results;
+                    const params = customParams || {
+                        aoi: DOM.studyAreaSelect.value !== 'default' ? DOM.studyAreaSelect.options[DOM.studyAreaSelect.selectedIndex].text : 'Custom Drawn Area',
+                        model: DOM.modelSelect.options[DOM.modelSelect.selectedIndex].text,
+                        satellite: DOM.satelliteSelect.options[DOM.satelliteSelect.selectedIndex].text,
+                        startDate: DOM.dateStartInput.value,
+                        endDate: DOM.dateEndInput.value,
+                        cloudCover: DOM.cloudCoverSlider.value
+                    };
+
+                    const report = `
+PaddyTrack Analysis Report
+================================
+${isSample ? "\n*** NOTE: This is a sample report. Run a new analysis for specific results. ***\n" : ""}
+Date of Analysis: ${new Date().toLocaleString()}
+
+--- Analysis Parameters ---
+Area of Interest (AOI): ${params.aoi}
+Classification Model:   ${params.model}
+Satellite Source:       ${params.satellite}
+Date Range:             ${params.startDate} to ${params.endDate}
+Cloud Cover Tolerance:  ${params.cloudCover}%
+
+--- Performance Metrics ---
+Accuracy:  ${accuracy.toFixed(1)}%
+Kappa:     ${kappa.toFixed(2)}
+Precision: ${precision.toFixed(2)}
+Recall:    ${recall.toFixed(2)}
+F1-Score:  ${f1score.toFixed(2)}
+
+--- Data Insights ---
+Land Cover Distribution:
+  - Paddy:       ${landCover[0].toFixed(1)}%
+  - Water:       ${landCover[1].toFixed(1)}%
+  - Urban:       ${landCover[2].toFixed(1)}%
+  - Fallow Land: ${landCover[3].toFixed(1)}%
+
+Seasonal Growth Profile (NDVI):
+  - June:   ${ndvi[0]}
+  - July:   ${ndvi[1]}
+  - August: ${ndvi[2]} (Peak)
+  - Sept:   ${ndvi[3]}
+  - Oct:    ${ndvi[4]}
+
+================================
+Report generated by PaddyTrack.
+`;
+                    return report.trim();
+                },
+
+                download: () => {
+                    let reportContent = ReportGenerator.generate();
+                    let isSample = false;
+
+                    if (!reportContent) {
+                        // If no results exist, create a sample report on the fly
+                        const sampleResults = {
+                            accuracy: 85.2, kappa: 0.78, precision: 0.88, recall: 0.86, f1score: 0.87,
+                            landCover: [68.0, 12.0, 10.0, 10.0],
+                            ndvi: [0.25, 0.35, 0.72, 0.65, 0.45]
+                        };
+                        const sampleParams = {
+                            aoi: 'Sample Area', model: 'Random Forest (RF)', satellite: 'Sentinel-2 (10m, 5-day)',
+                            startDate: '2023-06-01', endDate: '2023-10-31', cloudCover: 20
+                        };
+                        reportContent = ReportGenerator.generate(sampleResults, sampleParams, true);
+                        isSample = true;
+                    }
+
+                    const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `PaddyTrack_Report_${new Date().toISOString().slice(0,10)}${isSample ? '_Sample' : ''}.txt`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    UIManager.showToast(isSample ? "Sample report download started!" : "Report download started!");
+                }
+            };
+
+            // --- Analysis Simulator ---
+            const AnalysisSimulator = {
+                generateDynamicResults: () => {
+                    const model = DOM.modelSelect.value;
+                    const satellite = DOM.satelliteSelect.value;
+                    const area = DOM.studyAreaSelect.value;
+                    const cloudCover = parseInt(DOM.cloudCoverSlider.value);
+                    const startDate = new Date(DOM.dateStartInput.value);
+                    const endDate = new Date(DOM.dateEndInput.value);
+
+                    // 1. Calculate a base accuracy from model, satellite, and area
+                    let baseAccuracy = Config.modelScores[model] || 90;
+                    baseAccuracy += Config.satelliteScores[satellite] || 0;
+                    baseAccuracy += Config.areaModifiers[area] || Config.areaModifiers['default'];
+                    
+                    // 2. Calculate date range penalty
+                    const idealStartMonth = 5; // June (0-indexed)
+                    const idealEndMonth = 9;   // October
+                    let datePenalty = 0;
+                    if (startDate.getMonth() > idealEndMonth || endDate.getMonth() < idealStartMonth) {
+                        datePenalty = 30; 
+                    } else {
+                        if (startDate.getMonth() > idealStartMonth) datePenalty += (startDate.getMonth() - idealStartMonth) * 3;
+                        if (endDate.getMonth() < idealEndMonth) datePenalty += (idealEndMonth - endDate.getMonth()) * 3;
+                    }
+
+                    // 3. Apply penalties
+                    const cloudPenalty = (cloudCover / 100) * 15;
+                    let finalAccuracy = baseAccuracy - cloudPenalty - datePenalty;
+                    finalAccuracy = Math.max(finalAccuracy, 40);
+
+                    // 4. Generate other metrics
+                    const performanceFactor = finalAccuracy / 100;
+                    const results = {
+                        accuracy: finalAccuracy,
+                        kappa: Math.max(0, 0.88 * performanceFactor + (Math.random() * 0.02 - 0.01)),
+                        precision: Math.max(0, 0.94 * performanceFactor + (Math.random() * 0.02 - 0.01)),
+                        recall: Math.max(0, 0.93 * performanceFactor + (Math.random() * 0.02 - 0.01)),
+                        f1score: Math.max(0, 0.935 * performanceFactor + (Math.random() * 0.02 - 0.01)),
+                        landCover: [Math.max(0, 65 + (performanceFactor * 10)), 10, 8, Math.max(0, 12 - (performanceFactor * 5))],
+                        ndvi: [0.3, 0.4, Math.max(0.45, 0.75 + (performanceFactor * 0.1)), 0.7, 0.5]
+                    };
+                    
+                    return results;
+                },
+                run: async () => {
+                    UIManager.setLoading(true, 'Connecting to server...');
+                    document.getElementById(`step-0`).classList.replace('text-gray-500', 'text-emerald-400');
+
+                    const analysisParams = {
+                        aoi: drawnItems.toGeoJSON(),
+                        model: DOM.modelSelect.value,
+                        satellite: DOM.satelliteSelect.value,
+                        startDate: DOM.dateStartInput.value,
+                        endDate: DOM.dateEndInput.value,
+                        cloudCover: parseInt(DOM.cloudCoverSlider.value)
+                    };
+
+                    try {
+                        // This fetch will fail in a local environment, which is expected.
+                        const response = await fetch('/api/run-analysis', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(analysisParams)
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Server responded with an error.');
+                        }
+
+                        const realResults = await response.json();
+                        UIManager.updateResults(realResults);
+                        UIManager.setLoading(false);
+
+                    } catch (error) {
+                        console.warn("API call failed. Falling back to local simulation.", error.message);
+                        UIManager.showToast("Server not found. Running local simulation.");
+                        
+                        // Fallback to simulation
+                        const steps = [
+                            { duration: 1000, step: 1 }, { duration: 1000, step: 2 },
+                            { duration: 1000, step: 3 }, { duration: 1500, step: 4 }
+                        ];
+
+                        let promiseChain = Promise.resolve();
+                        steps.forEach(step => {
+                            promiseChain = promiseChain.then(() => new Promise(resolve => {
+                                document.getElementById(`step-${step.step}`).classList.replace('text-gray-500', 'text-emerald-400');
+                                setTimeout(resolve, step.duration);
+                            }));
+                        });
+
+                        promiseChain.then(() => {
+                            const simulatedResults = AnalysisSimulator.generateDynamicResults();
+                            UIManager.updateResults(simulatedResults);
+                            UIManager.setLoading(false);
+                        });
+                    }
+                }
+            };
+
+            // --- Event Listeners ---
+            DOM.launchDashboardBtn.addEventListener('click', UIManager.showDashboard);
+            DOM.backToLandingBtn.addEventListener('click', UIManager.showLandingPage);
+            DOM.runAnalysisBtn.addEventListener('click', () => {
+                if (drawnItems.getLayers().length === 0) {
+                    UIManager.showToast("Please select or draw an Area of Interest first.");
+                    return;
+                }
+                AnalysisSimulator.run();
+            });
+            DOM.downloadReportBtn.addEventListener('click', ReportGenerator.download);
+
+            DOM.studyAreaSelect.addEventListener('change', (e) => {
+                const areaKey = e.target.value;
+                if (areaKey !== "default" && Config.studyAreas[areaKey]) {
+                    const area = Config.studyAreas[areaKey];
+                    map.setView([area.lat, area.lng], area.zoom);
+                    drawnItems.clearLayers();
+                    const aoiLayer = L.geoJSON(area.geojson, { style: { color: "#fbbf24", weight: 2, fillOpacity: 0.1 } });
+                    drawnItems.addLayer(aoiLayer);
+                }
+            });
+
+            DOM.cloudCoverSlider.addEventListener('input', (e) => {
+                DOM.cloudCoverValue.textContent = e.target.value;
+            });
+
+            map.on(L.Draw.Event.CREATED, function (e) {
+                const layer = e.layer;
+                drawnItems.clearLayers();
+                drawnItems.addLayer(layer);
+                DOM.studyAreaSelect.value = "default";
+                UIManager.showToast("Area of Interest created successfully!");
+            });
+        });
+    </script>
+</body>
+</html>
