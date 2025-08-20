@@ -99,13 +99,6 @@
         .loading-overlay {
             @apply absolute inset-0 bg-gray-900 bg-opacity-70 z-20 flex items-center justify-center transition-opacity duration-300;
         }
-
-        /* Tabs for results */
-        .tab-button { @apply px-4 py-2 font-semibold text-gray-400 border-b-2 border-transparent hover:text-white hover:border-emerald-400 transition-all duration-300; }
-        .tab-button.active { @apply text-emerald-400 border-emerald-400; }
-        .tab-content { @apply hidden; }
-        .tab-content.active { @apply block; }
-
     </style>
 </head>
 <body class="overflow-x-hidden">
@@ -287,6 +280,9 @@
                     <option value="evi">EVI</option>
                 </select>
             </div>
+            <div id="hotspot-control" class="absolute bottom-4 left-4 z-10 bg-emerald-600/80 backdrop-blur-sm p-2 rounded-lg hidden shadow-lg">
+                <button id="hotspotBtn" class="text-white font-bold py-2 px-3 text-sm hover:bg-emerald-700 rounded-md transition-all">Show Risk Hotspots</button>
+            </div>
             <div id="map-loader" class="loading-overlay hidden opacity-0">
                  <div class="text-center">
                     <svg class="animate-spin h-10 w-10 text-emerald-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -297,100 +293,69 @@
 
         <div class="col-span-12 md:col-span-3 row-span-11 glassmorphism rounded-xl p-4 overflow-y-auto relative">
              <div id="results-loader" class="loading-overlay hidden opacity-0"></div>
-            <h3 class="text-xl font-bold mb-2 border-b border-gray-600 pb-2">Results & Insights</h3>
+            <h3 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">Results & Insights</h3>
             
-            <div class="border-b border-gray-700 mb-4">
-                <nav class="-mb-px flex space-x-2" id="resultsTabs">
-                    <button data-tab="classification" class="tab-button active text-sm">Classification</button>
-                    <button data-tab="yield" class="tab-button text-sm">Yield Est.</button>
-                    <button data-tab="health" class="tab-button text-sm">Pest/Disease</button>
-                    <button data-tab="water" class="tab-button text-sm">Water Mgt.</button>
-                </nav>
-            </div>
-
-            <div id="resultsContent" class="hidden">
-                 <div id="tab-content-classification" class="tab-content active">
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Evaluation Metrics</h4>
-                        <div class="grid grid-cols-2 gap-3 text-sm bg-gray-800 p-3 rounded-lg">
-                            <p><strong>Accuracy:</strong><br><span id="accuracy" class="text-xl font-bold">0%</span></p>
-                            <p><strong>Kappa:</strong><br><span id="kappa" class="text-xl font-bold">0.00</span></p>
-                            <p><strong>Precision:</strong><br><span id="precision" class="text-xl font-bold">0.00</span></p>
-                            <p><strong>Recall:</strong><br><span id="recall" class="text-xl font-bold">0.00</span></p>
-                            <p><strong>F1-Score:</strong><br><span id="f1score" class="text-xl font-bold">0.00</span></p>
-                        </div>
+            <div id="resultsContent" class="hidden space-y-6">
+                <div id="classification-module">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Classification Metrics</h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm bg-gray-800 p-3 rounded-lg">
+                        <p><strong>Accuracy:</strong><br><span id="accuracy" class="text-xl font-bold">0%</span></p>
+                        <p><strong>Kappa:</strong><br><span id="kappa" class="text-xl font-bold">0.00</span></p>
+                        <p><strong>Precision:</strong><br><span id="precision" class="text-xl font-bold">0.00</span></p>
+                        <p><strong>Recall:</strong><br><span id="recall" class="text-xl font-bold">0.00</span></p>
+                        <p><strong>F1-Score:</strong><br><span id="f1score" class="text-xl font-bold">0.00</span></p>
                     </div>
-                    
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Seasonal Growth Monitoring (NDVI)</h4>
-                        <div class="chart-container bg-gray-800 p-2 rounded-lg">
-                            <canvas id="temporalChart"></canvas>
-                        </div>
-                    </div>
-
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Land Cover Distribution</h4>
-                        <div class="chart-container bg-gray-800 p-2 rounded-lg">
-                            <canvas id="landCoverChart"></canvas>
-                        </div>
-                    </div>
-                    
-                     <div class="mt-6">
-                        <button id="downloadReportBtn" class="w-full btn-secondary">Download Report</button>
+                </div>
+                
+                <div id="growth-module">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Seasonal Growth Monitoring (NDVI)</h4>
+                    <div class="chart-container bg-gray-800 p-2 rounded-lg">
+                        <canvas id="temporalChart"></canvas>
                     </div>
                 </div>
 
-                <div id="tab-content-yield" class="tab-content">
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Yield Estimation</h4>
-                        <div class="grid grid-cols-2 gap-3 text-sm bg-gray-800 p-3 rounded-lg">
-                            <p><strong>Estimated Yield:</strong><br><span id="yield-estimate" class="text-xl font-bold">0 t/ha</span></p>
-                            <p><strong>Potential Range:</strong><br><span id="yield-range" class="text-base font-bold">0 - 0 t/ha</span></p>
-                            <p class="col-span-2"><strong>Growth Stage:</strong><br><span id="growth-stage" class="text-base font-bold">N/A</span></p>
-                        </div>
-                    </div>
-                     <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Yield Forecast</h4>
-                        <div class="chart-container bg-gray-800 p-2 rounded-lg">
-                            <canvas id="yieldChart"></canvas>
-                        </div>
+                <div id="landcover-module">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Land Cover Distribution</h4>
+                    <div class="chart-container bg-gray-800 p-2 rounded-lg">
+                        <canvas id="landCoverChart"></canvas>
                     </div>
                 </div>
 
-                <div id="tab-content-health" class="tab-content">
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Risk Assessment</h4>
-                        <div class="chart-container !h-48 bg-gray-800 p-2 rounded-lg">
-                            <canvas id="riskGaugeChart"></canvas>
-                        </div>
+                <div id="yield-module">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Yield Estimation</h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm bg-gray-800 p-3 rounded-lg">
+                        <p><strong>Estimated Yield:</strong><br><span id="yield-estimate" class="text-xl font-bold">0 t/ha</span></p>
+                        <p><strong>Potential Range:</strong><br><span id="yield-range" class="text-base font-bold">0 - 0 t/ha</span></p>
+                        <p class="col-span-2"><strong>Growth Stage:</strong><br><span id="growth-stage" class="text-base font-bold">N/A</span></p>
                     </div>
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Potential Threats</h4>
-                        <ul class="text-sm bg-gray-800 p-3 rounded-lg space-y-1">
-                            <li id="threat-1">Brown Spot</li>
-                            <li id="threat-2">Rice Blast</li>
-                            <li id="threat-3">Stem Borer</li>
-                        </ul>
-                    </div>
-                    <div class="mt-6">
-                        <button id="hotspotBtn" class="w-full btn-secondary">Show Risk Hotspots on Map</button>
+                    <div class="chart-container bg-gray-800 p-2 rounded-lg mt-4">
+                        <canvas id="yieldChart"></canvas>
                     </div>
                 </div>
 
-                 <div id="tab-content-water" class="tab-content">
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Irrigation Recommendation</h4>
-                        <div class="bg-gray-800 p-3 rounded-lg">
-                            <p id="irrigation-recommendation" class="text-center font-bold text-lg text-emerald-400">Run analysis for insights.</p>
-                             <p class="text-xs text-center text-gray-400 mt-1">Evapotranspiration Rate: <span id="et-rate">-- mm/day</span></p>
-                        </div>
+                <div id="health-module">
+                    <h4 class="font-semibold mb-2 text-emerald-400">Pest & Disease Risk</h4>
+                    <div class="chart-container !h-48 bg-gray-800 p-2 rounded-lg">
+                        <canvas id="riskGaugeChart"></canvas>
                     </div>
-                    <div class="mb-4">
-                        <h4 class="font-semibold mb-2 text-emerald-400">Soil Moisture Index (7-day)</h4>
-                        <div class="chart-container bg-gray-800 p-2 rounded-lg">
-                            <canvas id="soilMoistureChart"></canvas>
-                        </div>
-                    </div>
+                    <ul class="text-sm bg-gray-800 p-3 rounded-lg space-y-1 mt-4">
+                        <li>Potential Threats: <span id="threat-1">Brown Spot, Rice Blast, Stem Borer</span></li>
+                    </ul>
+                </div>
+
+                <div id="water-module">
+                   <h4 class="font-semibold mb-2 text-emerald-400">Water Management</h4>
+                   <div class="bg-gray-800 p-3 rounded-lg mb-4">
+                       <p id="irrigation-recommendation" class="text-center font-bold text-lg text-emerald-400">Run analysis for insights.</p>
+                       <p class="text-xs text-center text-gray-400 mt-1">Evapotranspiration Rate: <span id="et-rate">-- mm/day</span></p>
+                   </div>
+                   <div class="chart-container bg-gray-800 p-2 rounded-lg">
+                       <canvas id="soilMoistureChart"></canvas>
+                   </div>
+               </div>
+                
+                <div class="pt-4 border-t border-gray-700">
+                   <button id="downloadReportBtn" class="w-full btn-secondary">Download Full Report</button>
                 </div>
             </div>
 
@@ -455,9 +420,8 @@
                 toast: document.getElementById('toast'),
                 downloadReportBtn: document.getElementById('downloadReportBtn'),
                 featureLayerSelect: document.getElementById('featureLayer'),
-                resultsTabs: document.getElementById('resultsTabs'),
-                tabContents: document.querySelectorAll('.tab-content'),
                 hotspotBtn: document.getElementById('hotspotBtn'),
+                hotspotControl: document.getElementById('hotspot-control'),
             };
 
             // --- Map Initialization ---
@@ -521,6 +485,7 @@
                         toggleLoader(DOM.mapLoader, true);
                         toggleLoader(DOM.resultsLoader, true);
                         DOM.resultsContent.classList.add('hidden');
+                        DOM.hotspotControl.classList.add('hidden');
                         DOM.resultsPlaceholder.classList.remove('hidden');
                         DOM.preprocessingStepsEl.classList.remove('hidden');
                         for(let i = 0; i <= 4; i++) {
@@ -534,6 +499,7 @@
                            DOM.downloadReportBtn.disabled = false;
                            DOM.hotspotBtn.disabled = false;
                            DOM.featureLayerSelect.disabled = false;
+                           DOM.hotspotControl.classList.remove('hidden');
                         }
                     }
                 },
@@ -544,7 +510,11 @@
                     
                     // --- MAP LAYERS ---
                     if(classifiedLayer) map.removeLayer(classifiedLayer);
-                    if(hotspotLayer) map.removeLayer(hotspotLayer);
+                    if(hotspotLayer) {
+                        map.removeLayer(hotspotLayer);
+                        hotspotLayer = null;
+                        DOM.hotspotBtn.textContent = 'Show Risk Hotspots';
+                    }
                     classifiedLayer = L.geoJSON(drawnItems.toGeoJSON(), {
                         style: { color: "#10b981", weight: 3, fillOpacity: 0.6 }
                     }).bindPopup("<b>Classified Paddy Area</b><br>High confidence.").addTo(map);
@@ -831,13 +801,14 @@ Evapotranspiration Rate: ${water.etRate.toFixed(2)} mm/day
             });
             
             DOM.hotspotBtn.addEventListener('click', () => {
-                if (!drawnItems.getLayers().length) {
+                if (drawnItems.getLayers().length === 0) {
                     UIManager.showToast("Please define an Area of Interest first.");
                     return;
                 }
                 if (hotspotLayer) {
                     map.removeLayer(hotspotLayer);
                     hotspotLayer = null;
+                    DOM.hotspotBtn.textContent = 'Show Risk Hotspots';
                     UIManager.showToast("Hotspot layer removed.");
                 } else {
                     const bounds = drawnItems.getBounds();
@@ -853,6 +824,7 @@ Evapotranspiration Rate: ${water.etRate.toFixed(2)} mm/day
                         }));
                     }
                     hotspotLayer = L.featureGroup(hotspots).addTo(map);
+                    DOM.hotspotBtn.textContent = 'Hide Risk Hotspots';
                     UIManager.showToast("Risk hotspots are now displayed on the map.");
                 }
             });
@@ -862,22 +834,6 @@ Evapotranspiration Rate: ${water.etRate.toFixed(2)} mm/day
                 drawnItems.addLayer(e.layer);
                 DOM.studyAreaSelect.value = "default";
                 UIManager.showToast("Area of Interest created successfully!");
-            });
-
-            DOM.resultsTabs.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') {
-                    const tab = e.target.dataset.tab;
-                    // Switch active button
-                    DOM.resultsTabs.querySelector('.active').classList.remove('active');
-                    e.target.classList.add('active');
-                    // Switch active content
-                    DOM.tabContents.forEach(content => {
-                        content.classList.remove('active');
-                        if (content.id === `tab-content-${tab}`) {
-                            content.classList.add('active');
-                        }
-                    });
-                }
             });
         });
     </script>
